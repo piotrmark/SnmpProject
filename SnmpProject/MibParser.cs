@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
 
@@ -18,9 +17,21 @@ namespace SnmpProject
 
         private static readonly Regex ObjectIdentifierDataRegex = new Regex("{.*}");
 
+        private static readonly Regex ObjectTypeRegex =
+            new Regex("\\S*\\s*OBJECT-TYPE.*?::= {.*?}", RegexOptions.Singleline);
+
+        private static readonly Regex SyntaxRegex = new Regex("SYNTAX.*");
+        private static readonly Regex AccessRegex = new Regex("ACCESS.*");
+        private static readonly Regex StatusRegex = new Regex("STATUS.*");
+        private static readonly Regex DescriptionRegex = new Regex("\".*\"", RegexOptions.Singleline);
+        private static readonly Regex ClassDataRegex = new Regex("::= {.*");
+
+        private static readonly Regex ModuleIdentityRegex =
+            new Regex("\\S*\\s*MODULE-IDENTITY.*?::= {.*?}", RegexOptions.Singleline);
+
         #endregion
 
-        public static void Parse(string mibFile) //TODO: return parsed tree
+        public static ObjectTree Parse(string mibFile) //TODO: return parsed tree
         {
             //Parse imports
             var importsSection = ImportsSectionRegex.Match(mibFile);
@@ -32,6 +43,16 @@ namespace SnmpProject
             //Parse OIDs
             var oidLines = ObjectIdentifierLineRegex.Matches(mibFile);
             var oids = (from Match oidLine in oidLines select CreateOid(oidLine.Value)).ToList();
+
+            //Parse object types
+            var objectTypesData =
+                ObjectTypeRegex.Matches(mibFile, importsSection.Value.Length); //Do not search in imports section
+            var objectTypes = (from Match objType in objectTypesData select CreateObjectType(objType.Value)).ToList();
+
+            //Parse object identity
+            var moduleIdentity = CreateOid(ModuleIdentityRegex.Match(mibFile, importsSection.Value.Length).Value);
+
+            return new ObjectTree(moduleIdentity, oids, objectTypes);
         }
 
         private static List<string> GetImportedElements(string importGroup)
@@ -44,7 +65,7 @@ namespace SnmpProject
                 elements[i] = elements[i].Replace("FROM", string.Empty);
                 elements[i] = elements[i].Trim();
             }
-            return elements.ToList();
+            return elements.Where(e => e != "OBJECT-TYPE").ToList();
         }
 
         private static ObjectIdentifier CreateOid(string oidLine)
@@ -56,6 +77,21 @@ namespace SnmpProject
                 Name = oidLine.Split(' ').First(),
                 Class = splitted[1],
                 Number = int.Parse(splitted[2])
+            };
+        }
+
+        private static ObjectType CreateObjectType(string objTypeData)
+        {
+            var classData = ObjectIdentifierDataRegex.Match(ClassDataRegex.Match(objTypeData).Value).Value.Split(' ');
+            return new ObjectType
+            {
+                Name = objTypeData.Split(' ').First(),
+                Syntax = SyntaxRegex.Match(objTypeData).Value.Replace("SYNTAX", string.Empty).Trim(),
+                Access = AccessRegex.Match(objTypeData).Value.Replace("ACCESS", string.Empty).Trim(),
+                Status = StatusRegex.Match(objTypeData).Value.Replace("STATUS", string.Empty).Trim(),
+                Description = DescriptionRegex.Match(objTypeData).Value.Trim('"'),
+                Class = classData[1],
+                Number = int.Parse(classData[2])
             };
         }
     }

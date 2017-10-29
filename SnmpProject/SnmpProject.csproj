@@ -44,6 +44,9 @@
   <ItemGroup>
     <Compile Include="MibParser.cs" />
     <Compile Include="ObjectIdentifier.cs" />
+    <Compile Include="ObjectNode.cs" />
+    <Compile Include="ObjectTree.cs" />
+    <Compile Include="ObjectType.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>

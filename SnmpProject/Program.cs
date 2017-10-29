@@ -1,9 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace SnmpProject
 {
@@ -13,8 +9,9 @@ namespace SnmpProject
         {
             var path = "..//..//mibs//ACCOUNTING-CONTROL-MIB";
             var mibFile = File.ReadAllText(path);
-            MibParser.Parse(mibFile);
-
+            var tree = MibParser.Parse(mibFile);
+            tree.Print();
+            Console.ReadKey();
         }
     }
 }
