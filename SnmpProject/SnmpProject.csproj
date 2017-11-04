@@ -42,6 +42,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="DataType.cs" />
     <Compile Include="MibParser.cs" />
     <Compile Include="ObjectIdentifier.cs" />
     <Compile Include="ObjectNode.cs" />

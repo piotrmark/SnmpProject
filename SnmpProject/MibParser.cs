@@ -1,4 +1,6 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
 
@@ -26,33 +28,55 @@ namespace SnmpProject
         private static readonly Regex DescriptionRegex = new Regex("\".*\"", RegexOptions.Singleline);
         private static readonly Regex ClassDataRegex = new Regex("::= {.*");
 
-        private static readonly Regex ModuleIdentityRegex =
-            new Regex("\\S*\\s*MODULE-IDENTITY.*?::= {.*?}", RegexOptions.Singleline);
+        //private static readonly Regex ModuleIdentityRegex =
+        //    new Regex("\\S*\\s*MODULE-IDENTITY.*?::= {.*?}", RegexOptions.Singleline);
+
+        private const string MibsPath = "..//..//mibs//";
 
         #endregion
 
-        public static ObjectTree Parse(string mibFile) //TODO: return parsed tree
+        public static ObjectTree Parse(string mibFile)
         {
             //Parse imports
             var importsSection = ImportsSectionRegex.Match(mibFile);
             var importsGroups = ImportsGroupsRegex.Matches(importsSection.Value);
             var importsDictionary = importsGroups.Cast<Match>()
-                .ToDictionary(import => import.Value.Split(' ').Last().Trim(),
+                .ToDictionary(import => import.Value.Split(' ').Last().Replace(";", String.Empty).Trim(),
                     import => GetImportedElements(import.Value));
 
             //Parse OIDs
             var oidLines = ObjectIdentifierLineRegex.Matches(mibFile);
             var oids = (from Match oidLine in oidLines select CreateOid(oidLine.Value)).ToList();
 
+            foreach (var file in importsDictionary.Keys)
+                oids.AddRange(GetOidsFromFile(file));
+
             //Parse object types
             var objectTypesData =
                 ObjectTypeRegex.Matches(mibFile, importsSection.Value.Length); //Do not search in imports section
             var objectTypes = (from Match objType in objectTypesData select CreateObjectType(objType.Value)).ToList();
 
-            //Parse object identity
-            var moduleIdentity = CreateOid(ModuleIdentityRegex.Match(mibFile, importsSection.Value.Length).Value);
+            //Parse data types
+            var dataTypes = new List<DataType>();
+            foreach (var import in importsDictionary)
+            {
+                try
+                {
+                    var path = MibsPath + import.Key;
+                    var file = File.ReadAllText(path);
+                    foreach (var type in import.Value)
+                    {
+                        ParseDataType(file, type, dataTypes);
+                    }
+                }
+                catch (Exception)
+                {
+                    // ignored
+                }
+            }
 
-            return new ObjectTree(moduleIdentity, oids, objectTypes);
+
+            return new ObjectTree(oids, objectTypes);
         }
 
         private static List<string> GetImportedElements(string importGroup)
@@ -74,9 +98,9 @@ namespace SnmpProject
             var splitted = oidData.Value.Split(' ');
             return new ObjectIdentifier
             {
-                Name = oidLine.Split(' ').First(),
+                Name = oidLine.Trim().Split(' ').First(),
                 Class = splitted[1],
-                Number = int.Parse(splitted[2])
+                Number = int.Parse(splitted[splitted.Length - 2])
             };
         }
 
@@ -92,6 +116,52 @@ namespace SnmpProject
                 Description = DescriptionRegex.Match(objTypeData).Value.Trim('"'),
                 Class = classData[1],
                 Number = int.Parse(classData[2])
+            };
+        }
+
+        private static IEnumerable<ObjectIdentifier> GetOidsFromFile(string fileName)
+        {
+            try
+            {
+                var path = MibsPath + fileName;
+                var mibFile = File.ReadAllText(path);
+                var oidLines = ObjectIdentifierLineRegex.Matches(mibFile);
+                return from Match oidLine in oidLines select CreateOid(oidLine.Value);
+            }
+            catch (Exception)
+            {
+                return new List<ObjectIdentifier>();
+            }
+
+        }
+
+        private static void ParseDataType(string file, string typeName, List<DataType> dataTypes)
+        {
+            var regex = new Regex(typeName + "\\s*::=.*?\n\r\n", RegexOptions.Singleline);
+            var match = regex.Match(file);
+            if (match.Value != string.Empty)
+                dataTypes.Add(CreateDataType(match.Value));
+        }
+
+        private static DataType CreateDataType(string typeInfo)
+        {
+            var baseTypeMatch = new Regex("\\n.*?[({]").Match(typeInfo);
+            var restrictionsMatch = new Regex("[{(].*[})]", RegexOptions.Singleline).Match(typeInfo);
+            var codingMatch = new Regex("\\[.*?\\]").Match(typeInfo);
+            return new DataType
+            {
+                Name = typeInfo.Trim().Split(' ').First(),
+                BaseType = baseTypeMatch.Value.Replace("{", string.Empty).Replace("(", string.Empty)
+                    .Replace("IMPLICIT", string.Empty).Replace("EXPLICIT", string.Empty).Trim(),
+                Restrictions = restrictionsMatch.Value.Trim('{', '(', ')', '}').Trim(),
+                CodingType = typeInfo.Contains("EXPLICIT")
+                    ? "EXPLICIT"
+                    : typeInfo.Contains("IMPLICIT")
+                        ? "IMPLICIT"
+                        : string.Empty,
+                CodingValue = !string.IsNullOrEmpty(codingMatch.Value)
+                    ? int.Parse(codingMatch.Value.Trim('[', ']').Split(' ').Last())
+                    : (int?) null
             };
         }
     }

@@ -1,8 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace SnmpProject
 {
@@ -10,28 +7,29 @@ namespace SnmpProject
     {
         public ObjectNode Root { get; set; }
 
-        public ObjectTree(ObjectIdentifier moduleIdentity, ICollection<ObjectIdentifier> oids,
-            ICollection<ObjectType> objectTypes)
+        public ObjectTree(ICollection<ObjectIdentifier> oids, ICollection<ObjectType> objectTypes)
         {
-            var rootOid = moduleIdentity;
+            var rootOid = oids.First(o => oids.All(oi => oi.Name != o.Class));
+            oids.Remove(rootOid);
+
             Root = new ObjectNode {ObjectIdentifier = rootOid};
             while (oids.Any())
             {
-                var currentOid = oids.First();
+                var currentOid = oids.First(o => oids.All(oi => oi.Name != o.Class));
                 var parent = GetNodeByName(currentOid.Class);
-                parent.Children.Add(new ObjectNode {ObjectIdentifier = currentOid, Parent = parent});
+                parent?.Children.Add(new ObjectNode {ObjectIdentifier = currentOid, Parent = parent});
                 oids.Remove(currentOid);
             }
             while (objectTypes.Any())
             {
                 var currentType = objectTypes.First();
                 var parent = GetNodeByName(currentType.Class);
-                parent.Children.Add(new ObjectNode {ObjectType = currentType, Parent = parent});
+                parent?.Children.Add(new ObjectNode {ObjectType = currentType, Parent = parent});
                 objectTypes.Remove(currentType);
             }
         }
 
-        public ObjectNode GetNodeByName(string name) //BFS
+        private ObjectNode GetNodeByName(string name) //BFS
         {
             var queue = new Queue<ObjectNode>();
             queue.Enqueue(Root);
@@ -46,7 +44,8 @@ namespace SnmpProject
                 foreach (var child in currentNode.Children)
                     queue.Enqueue(child);
             }
-            throw new Exception("Node not found");
+            //throw new Exception("Node not found");
+            return null;
         }
 
         public void Print()

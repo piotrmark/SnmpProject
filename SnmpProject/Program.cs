@@ -7,7 +7,7 @@ namespace SnmpProject
     {
         static void Main(string[] args)
         {
-            var path = "..//..//mibs//ACCOUNTING-CONTROL-MIB";
+            var path = "..//..//mibs//RFC1213-MIB";
             var mibFile = File.ReadAllText(path);
             var tree = MibParser.Parse(mibFile);
             tree.Print();

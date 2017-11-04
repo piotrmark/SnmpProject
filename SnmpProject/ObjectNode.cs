@@ -7,10 +7,10 @@ namespace SnmpProject
     {
         public ObjectIdentifier ObjectIdentifier { get; set; }
         public ObjectType ObjectType { get; set; }
-        public List<ObjectNode> Children { get; set; }
+        public List<ObjectNode> Children { get; }
         public ObjectNode Parent { get; set; }
 
-        public string DisplayName => ObjectIdentifier != null
+        private string DisplayName => ObjectIdentifier != null
             ? $"{ObjectIdentifier.Number}: {ObjectIdentifier.Name}"
             : $"{ObjectType.Number}: {ObjectType.Name}";
 
