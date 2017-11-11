@@ -11,7 +11,11 @@ namespace SnmpProject
             var mibFile = File.ReadAllText(path);
             var tree = MibParser.Parse(mibFile);
             tree.Print();
-            Console.ReadKey();
+            while (true)
+            {
+                var oid = Console.ReadLine();
+                tree.PrintObjectInfo(oid);
+            }
         }
     }
 }

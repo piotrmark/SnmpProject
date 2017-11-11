@@ -10,7 +10,7 @@ namespace SnmpProject
         public List<ObjectNode> Children { get; }
         public ObjectNode Parent { get; set; }
 
-        private string DisplayName => ObjectIdentifier != null
+        public string DisplayName => ObjectIdentifier != null
             ? $"{ObjectIdentifier.Number}: {ObjectIdentifier.Name}"
             : $"{ObjectType.Number}: {ObjectType.Name}";
 

@@ -74,9 +74,15 @@ namespace SnmpProject
                     // ignored
                 }
             }
-
-
-            return new ObjectTree(oids, objectTypes);
+            var typesToParse = FilterDataTypes(objectTypes.Select(o => o.Syntax));
+            foreach (var type in typesToParse)
+            {
+                if (dataTypes.All(t => t.Name != type))
+                {
+                    ParseDataType(mibFile, type, dataTypes);
+                }
+            }
+            return new ObjectTree(oids, objectTypes, dataTypes);
         }
 
         private static List<string> GetImportedElements(string importGroup)
@@ -107,7 +113,7 @@ namespace SnmpProject
         private static ObjectType CreateObjectType(string objTypeData)
         {
             var classData = ObjectIdentifierDataRegex.Match(ClassDataRegex.Match(objTypeData).Value).Value.Split(' ');
-            return new ObjectType
+            var objectType = new ObjectType
             {
                 Name = objTypeData.Split(' ').First(),
                 Syntax = SyntaxRegex.Match(objTypeData).Value.Replace("SYNTAX", string.Empty).Trim(),
@@ -117,6 +123,11 @@ namespace SnmpProject
                 Class = classData[1],
                 Number = int.Parse(classData[2])
             };
+            var restictions = GetRestrictionsFromSyntax(objectType.Syntax);
+            if (restictions == null) return objectType;
+            objectType.Min = restictions.Item1;
+            objectType.Max = restictions.Item2;
+            return objectType;
         }
 
         private static IEnumerable<ObjectIdentifier> GetOidsFromFile(string fileName)
@@ -132,7 +143,6 @@ namespace SnmpProject
             {
                 return new List<ObjectIdentifier>();
             }
-
         }
 
         private static void ParseDataType(string file, string typeName, List<DataType> dataTypes)
@@ -163,6 +173,27 @@ namespace SnmpProject
                     ? int.Parse(codingMatch.Value.Trim('[', ']').Split(' ').Last())
                     : (int?) null
             };
+        }
+
+        private static IEnumerable<string> FilterDataTypes(IEnumerable<string> types)
+        {
+            var result = (from type in types
+                where !type.ToLower().Contains("integer") && !type.ToLower().Contains("string") &&
+                      !type.ToLower().Contains("object identifier") && !type.ToLower().Contains("null") &&
+                      !string.IsNullOrEmpty(type)
+                select type.Replace("SEQUENCE OF", string.Empty).Trim()).ToList();
+            return result.Distinct();
+        }
+
+        public static Tuple<long, long> GetRestrictionsFromSyntax(string syntax)
+        {
+            var rangeMatch = new Regex("[0-9]*\\.\\.[0-9]*").Match(syntax);
+            if (!string.IsNullOrEmpty(rangeMatch.Value))
+            {
+                var minMax = rangeMatch.Value.Split('.');
+                return new Tuple<long, long>(long.Parse(minMax.First()), long.Parse(minMax.Last()));
+            }
+            return null;
         }
     }
 }

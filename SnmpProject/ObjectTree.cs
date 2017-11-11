@@ -1,14 +1,21 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace SnmpProject
 {
     public class ObjectTree
     {
-        public ObjectNode Root { get; set; }
+        public ObjectNode Root { get; }
+        public Dictionary<string, DataType> DataTypes { get; }
 
-        public ObjectTree(ICollection<ObjectIdentifier> oids, ICollection<ObjectType> objectTypes)
+        public ObjectTree(ICollection<ObjectIdentifier> oids, ICollection<ObjectType> objectTypes, List<DataType> dataTypes)
         {
+            DataTypes = new Dictionary<string, DataType>();
+            foreach (var dataType in dataTypes)
+            {
+                DataTypes.Add(dataType.Name, dataType);
+            }
             var rootOid = oids.First(o => oids.All(oi => oi.Name != o.Class));
             oids.Remove(rootOid);
 
@@ -23,6 +30,15 @@ namespace SnmpProject
             while (objectTypes.Any())
             {
                 var currentType = objectTypes.First();
+                if (DataTypes.ContainsKey(currentType.Syntax))
+                {
+                    var restrictions = MibParser.GetRestrictionsFromSyntax(DataTypes[currentType.Syntax].Restrictions);
+                    if (restrictions != null)
+                    {
+                        currentType.Min = restrictions.Item1;
+                        currentType.Max = restrictions.Item2;
+                    }
+                }
                 var parent = GetNodeByName(currentType.Class);
                 parent?.Children.Add(new ObjectNode {ObjectType = currentType, Parent = parent});
                 objectTypes.Remove(currentType);
@@ -51,6 +67,21 @@ namespace SnmpProject
         public void Print()
         {
             Root.PrintPretty(string.Empty, true);
+        }
+
+        public void PrintObjectInfo(string oid)
+        {
+            var path = oid.Split('.');
+            var current = Root;
+            foreach (var step in path)
+            {
+                var number = int.Parse(step);
+                current = current.Children.FirstOrDefault(n =>
+                    n.ObjectIdentifier != null ? n.ObjectIdentifier.Number == number : n.ObjectType.Number == number);
+                if (current == null)
+                    throw new Exception("Node not found");
+            }
+            Console.WriteLine(current.ObjectType != null ? current.ObjectType.FullInfo : current.DisplayName);
         }
     }
 }
