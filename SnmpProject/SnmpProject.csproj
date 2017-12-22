@@ -42,8 +42,11 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="BerDecoder.cs" />
     <Compile Include="BerEncoder.cs" />
     <Compile Include="DataType.cs" />
+    <Compile Include="DecodedType.cs" />
+    <Compile Include="DecodedTypeNode.cs" />
     <Compile Include="MibParser.cs" />
     <Compile Include="ObjectIdentifier.cs" />
     <Compile Include="ObjectNode.cs" />

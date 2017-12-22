@@ -1,5 +1,6 @@
 ﻿using System;
 using System.IO;
+using System.Linq;
 
 namespace SnmpProject
 {
@@ -17,6 +18,9 @@ namespace SnmpProject
             //    Console.WriteLine(type);
             //}
 
+            Console.WriteLine("Decoder test:");
+            var test = BerDecoder.Decode(StringToByteArray(Console.ReadLine()));
+
             while (true)
             {
                 Console.WriteLine("Select oid:");
@@ -31,6 +35,14 @@ namespace SnmpProject
                 }
                 Console.WriteLine(tree.EncodeObject(oid, value));
             }
+        }
+
+        private static byte[] StringToByteArray(string hex)
+        {
+            return Enumerable.Range(0, hex.Length)
+                .Where(x => x % 2 == 0)
+                .Select(x => Convert.ToByte(hex.Substring(x, 2), 16))
+                .ToArray();
         }
     }
 }
