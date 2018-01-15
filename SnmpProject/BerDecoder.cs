@@ -1,6 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.InteropServices;
+using System.Text;
+using System.Text.RegularExpressions;
 
 namespace SnmpProject
 {
@@ -11,13 +14,59 @@ namespace SnmpProject
             return DecodeObject(bytes, null);
         }
 
+        public static string DecodeOid(byte[] bytes)
+        {
+            var sb = new StringBuilder();
+            var start = 3;
+            var end = start;
+            while (end < bytes.Length)
+            {
+                while ((bytes[end] & 1 << 7) != 0)
+                {
+                    end++;
+                }
+                var current = bytes.Skip(start).Take(end - start + 1).ToArray();
+                for (int i = 0; i < current.Length; i++)
+                {
+                    current[i] &= 127;
+                }
+                var value = 0;
+                var exp = 0;
+                for (int i = current.Length - 1; i >= 0; i--)
+                {
+                    for (int j = 0; j < 7; j++)
+                    {
+                        if ((current[i] & 1 << j) != 0)
+                            value += (int)Math.Pow(2, exp);
+                        exp++;
+                    }
+                }
+                sb.Append(value);
+                if (end < bytes.Length - 1)
+                    sb.Append(".");
+                start = end + 1;
+                end = start;
+            }
+            return sb.ToString();
+        }
+
+        public static string DecodeValue(DecodedType type)
+        {
+            var sb = new StringBuilder();
+            foreach (var b in type.Data)
+            {
+                sb.Append(Convert.ToChar(b));
+            }
+            return sb.ToString();
+        }
+
         private static DecodedTypeNode DecodeObject(byte[] bytes, DecodedTypeNode parent)
         {
-            var res = new DecodedType();
-
             var current = bytes;
             while (current.Any())
             {
+                var res = new DecodedType();
+
                 var identifier = current[0];
                 if ((identifier & 1 << 7) == 0)
                 {
@@ -46,9 +95,9 @@ namespace SnmpProject
                     dataStart = current[1] & 127 + 2;
                 }
                 res.Length = length;
-                res.Data = current.Skip(dataStart).Take((int) length).ToArray();
+                res.Data = current.Skip(dataStart).Take((int)length).ToArray();
 
-                var node = new DecodedTypeNode {Value = res, Children = new List<DecodedTypeNode>()};
+                var node = new DecodedTypeNode { Value = res, Children = new List<DecodedTypeNode>() };
                 if (res.IsConstructed) //sequence
                 {
                     DecodeObject(current.Skip(dataStart).Take((int)length).ToArray(), node);
@@ -62,8 +111,8 @@ namespace SnmpProject
                 {
                     return node;    //Only root returns a value
                 }
-                
-                current = current.Skip(dataStart + (int) length).ToArray();
+
+                current = current.Skip(dataStart + (int)length).ToArray();
             }
 
             return null;

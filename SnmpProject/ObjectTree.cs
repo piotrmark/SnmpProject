@@ -83,13 +83,13 @@ namespace SnmpProject
             Console.WriteLine(current.ObjectType != null ? current.ObjectType.FullInfo : current.DisplayName);
         }
 
-        public string EncodeObject(string oid, string value)
+        public byte[] EncodeObject(string oid, string value)
         {
             var leaf = FindInTree(oid);
             var syntax = DataTypes.ContainsKey(leaf.ObjectType.Syntax)
                 ? DataTypes[leaf.ObjectType.Syntax].BaseType
                 : leaf.ObjectType.Syntax;
-            return BitConverter.ToString(BerEncoder.Encode(syntax, value).ToArray());
+            return BerEncoder.Encode(syntax, value).ToArray();
         }
 
         public bool ValidateValue(string oid, string value)
